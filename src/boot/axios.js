@@ -2,12 +2,12 @@ import { boot } from "quasar/wrappers";
 import axios from "axios";
 
 // Backend API base URL - points to Laravel server
-// In development: http://localhost:8000
+// In development: http://localhost (via nginx proxy)
 // In production: https://www.mycities.co.za (or window.location.origin)
-const SERVER_URL = process.env.API_URL || 
-  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' 
-    ? window.location.origin 
-    : "http://localhost:8000");
+// Runtime detection takes priority over build-time env vars
+const SERVER_URL = (typeof window !== 'undefined' && window.location.hostname === 'localhost'
+  ? window.location.origin  // Use http://localhost for local development
+  : (process.env.API_URL || window.location?.origin || "https://www.mycities.co.za"));
 
 // Create axios instance - stores will be accessed inside the boot function
 let api = null;
