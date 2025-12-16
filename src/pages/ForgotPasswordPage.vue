@@ -112,7 +112,7 @@
  * ForgotPasswordPage.vue
  * 
  * Password reset request screen for MyCities app.
- * User enters email to receive password reset instructions.
+ * User enters email to receive password reset instructions via email.
  * 
  * data-test attributes provided for e2e testing.
  */
@@ -120,7 +120,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-import { isValidEmail, getAccountByEmail } from 'src/services/authStorage';
+import { forgotPasswordVerification } from 'boot/axios';
 
 const router = useRouter();
 const $q = useQuasar();
@@ -131,6 +131,12 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 const emailSent = ref(false);
+
+// Email validation
+const isValidEmail = (emailStr) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(emailStr);
+};
 
 // Handle form submission
 async function handleSubmit() {
@@ -150,28 +156,45 @@ async function handleSubmit() {
   isLoading.value = true;
   
   try {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Call API to send password reset email
+    const response = await forgotPasswordVerification({ email: email.value });
     
-    // Check if account exists (for demo purposes)
-    const account = getAccountByEmail(email.value);
+    console.log('[ForgotPassword] Response:', response);
     
-    if (!account) {
-      // Don't reveal if email exists or not for security
+    if (response.status) {
+      // Show success state
+      successMessage.value = `Password reset instructions have been sent to ${email.value}`;
+      emailSent.value = true;
+      
+      $q.notify({
+        type: 'positive',
+        message: 'Reset email sent! Check your inbox.',
+        position: 'top',
+      });
+    } else {
+      // For security, don't reveal if email exists or not
       // Just show success message anyway
+      successMessage.value = `If an account exists with ${email.value}, you will receive password reset instructions.`;
+      emailSent.value = true;
+      
+      $q.notify({
+        type: 'info',
+        message: 'If the email exists, reset instructions have been sent.',
+        position: 'top',
+      });
     }
-    
-    // Show success state
-    successMessage.value = `Password reset instructions have been sent to ${email.value}`;
+  } catch (error) {
+    console.error('[ForgotPassword] Error:', error);
+    // For security, show generic success even on error
+    // This prevents email enumeration attacks
+    successMessage.value = `If an account exists with ${email.value}, you will receive password reset instructions.`;
     emailSent.value = true;
     
     $q.notify({
-      type: 'positive',
-      message: 'Reset email sent! Check your inbox.',
+      type: 'info',
+      message: 'If the email exists, reset instructions have been sent.',
       position: 'top',
     });
-  } catch (error) {
-    errorMessage.value = error.message || 'An error occurred. Please try again.';
   } finally {
     isLoading.value = false;
   }
@@ -182,11 +205,18 @@ async function resendEmail() {
   isLoading.value = true;
   
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Call API again
+    await forgotPasswordVerification({ email: email.value });
     
     $q.notify({
       type: 'positive',
       message: 'Reset email resent! Check your inbox.',
+      position: 'top',
+    });
+  } catch (error) {
+    $q.notify({
+      type: 'info',
+      message: 'If the email exists, reset instructions have been sent.',
       position: 'top',
     });
   } finally {
@@ -205,6 +235,7 @@ function goBack() {
 </script>
 
 <style scoped>
+/* Theme color - update when hex code is provided */
 .forgot-password-page {
   background: linear-gradient(135deg, #3294B8 0%, #1a5a6e 100%);
   min-height: 100vh;
@@ -226,13 +257,14 @@ function goBack() {
 }
 
 .page-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   margin: 0;
 }
 
 .forgot-card {
   border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 .icon-section {
@@ -241,28 +273,53 @@ function goBack() {
 }
 
 .form-title {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: #333;
   text-align: center;
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
 }
 
 .form-subtitle {
-  font-size: 14px;
+  font-size: 16px;
   color: #666;
   text-align: center;
   margin: 0 0 24px 0;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .forgot-form {
   padding: 8px 0;
 }
 
+/* Increase font sizes for form inputs */
+.forgot-form :deep(.q-field__label) {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.forgot-form :deep(.q-field__native) {
+  font-size: 17px;
+  padding: 12px 0;
+}
+
+.forgot-form :deep(.q-field__control) {
+  min-height: 56px;
+}
+
+.forgot-form :deep(.q-field--outlined .q-field__control) {
+  border-radius: 10px;
+}
+
+.forgot-form :deep(.q-btn) {
+  font-size: 17px;
+  padding: 14px 24px;
+  border-radius: 10px;
+}
+
 .back-link {
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .back-link .link {
@@ -270,6 +327,7 @@ function goBack() {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  font-weight: 500;
 }
 
 .back-link .link:hover {
@@ -280,8 +338,14 @@ function goBack() {
   text-align: center;
 }
 
+.email-sent :deep(.q-btn) {
+  font-size: 17px;
+  padding: 14px 24px;
+  border-radius: 10px;
+}
+
 .resend-link {
-  font-size: 14px;
+  font-size: 15px;
   color: #666;
 }
 

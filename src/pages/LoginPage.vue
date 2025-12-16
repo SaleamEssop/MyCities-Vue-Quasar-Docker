@@ -107,7 +107,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useUserStore } from 'src/stores/user';
@@ -135,12 +135,19 @@ const isValidEmail = (email) => {
 
 // Redirect if already authenticated
 onMounted(() => {
-  if (hasUser.value && hasToken.value) {
-    router.replace({ name: 'account-select' });
-  } else if (hasUser.value && !hasToken.value) {
-    // Clean up stale user without token to avoid guard loops
-    userStore.signOut();
-  }
+  // Small delay to ensure stores are initialized
+  setTimeout(() => {
+    if (hasUser.value && hasToken.value) {
+      console.log('[Login] Already authenticated, redirecting...');
+      router.replace({ name: 'account-select' });
+    } else if (hasUser.value && !hasToken.value) {
+      // Clean up stale user without token to avoid guard loops
+      console.warn('[Login] Stale user without token, clearing...');
+      userStore.signOut();
+      // Also clear authStorage
+      setSession(null);
+    }
+  }, 50);
 });
 
 const handleLogin = async () => {
@@ -178,6 +185,23 @@ const handleLogin = async () => {
     }
     
     if (userData && token) {
+      // CRITICAL: Clear ALL previous user data before setting new user
+      // This ensures complete data isolation between users
+      console.log('[Login] Clearing previous user data for isolation...');
+      userStore.signOut();
+      
+      // Also clear any persisted Pinia stores from localStorage
+      // This is a safety net for complete user isolation
+      const piniaKeys = Object.keys(localStorage).filter(key => key.startsWith('pinia-'));
+      piniaKeys.forEach(key => {
+        console.log('[Login] Clearing localStorage key:', key);
+        localStorage.removeItem(key);
+      });
+      
+      // Clear legacy session data
+      localStorage.removeItem('mycities_session');
+      localStorage.removeItem('session');
+      
       // Store user and token in Pinia store
       userStore.setUser(userData, token);
 
@@ -191,6 +215,24 @@ const handleLogin = async () => {
       });
       
       console.log('[Login] User stored:', userStore.getUser);
+      console.log('[Login] Token stored:', !!userStore.getToken);
+      
+      // Wait for Pinia persistence - longer in dev mode
+      await nextTick();
+      const isDev = process.env.NODE_ENV === 'development' || process.env.DEV;
+      const waitTime = isDev ? 500 : 200; // Longer wait in dev mode
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      
+      // Verify state before navigation
+      const verifyUser = userStore.getUser;
+      const verifyToken = userStore.getToken;
+      console.log('[Login] Pre-navigation verify:', { hasUser: !!verifyUser, hasToken: !!verifyToken, isDev });
+      
+      if (!verifyUser || !verifyToken) {
+        console.error('[Login] State lost before navigation!');
+        errorMessage.value = 'Authentication state error. Please try again.';
+        return;
+      }
       
       $q.notify({
         type: 'positive',
@@ -198,9 +240,21 @@ const handleLogin = async () => {
         position: 'top',
       });
       
-      // Use nextTick to ensure store is updated before navigation
-      await router.push({ name: 'account-select' });
-      console.log('[Login] Navigation triggered');
+      // Navigate using router.push with additional delay in dev mode
+      console.log('[Login] Attempting navigation to account-select...');
+      console.log('[Login] Current route:', router.currentRoute.value.path);
+      
+      // Use router.push with delay - longer in dev mode
+      setTimeout(() => {
+        console.log('[Login] Executing router.push...');
+        router.push({ name: 'account-select' }).then(() => {
+          console.log('[Login] Navigation successful');
+        }).catch(err => {
+          console.error('[Login] Router.push failed:', err);
+          // Fallback to hash navigation
+          window.location.hash = '#/select-account';
+        });
+      }, isDev ? 200 : 100);
     } else {
       console.error('[Login] Invalid response format:', response);
       errorMessage.value = response.msg || 'Login failed - invalid response';
@@ -213,54 +267,18 @@ const handleLogin = async () => {
   }
 };
 
-const handleDemoLogin = async () => {
+const handleDemoLogin = () => {
+  // Populate the form fields with demo credentials
+  email.value = 'demo@mycities.co.za';
+  password.value = 'demo123';
   errorMessage.value = '';
-  isDemoLoading.value = true;
   
-  try {
-    const response = await userLogin({ email: 'demo@mycities.co.za', password: 'demo123' });
-    
-    console.log('[Login] Demo login response:', response);
-    
-    // Handle different response formats
-    let userData = null;
-    let token = null;
-    
-    if (response.status) {
-      // Format: { status: true, data: {...}, token: "..." }
-      userData = response.data;
-      token = response.token;
-    } else if (response.user || response.data) {
-      // Format: { user: {...}, token: "..." } or { data: {...}, token: "..." }
-      userData = response.user || response.data;
-      token = response.token || response.access_token;
-    }
-    
-    if (userData && token) {
-      // Store user and token in Pinia store
-      userStore.setUser(userData, token);
-      
-      console.log('[Login] User stored:', userStore.getUser);
-      
-      $q.notify({
-        type: 'positive',
-        message: 'Welcome to the demo!',
-        position: 'top',
-      });
-      
-      // Use nextTick to ensure store is updated before navigation
-      await router.push({ name: 'account-select' });
-      console.log('[Login] Navigation triggered');
-    } else {
-      console.error('[Login] Invalid response format:', response);
-      errorMessage.value = response.msg || 'Demo login failed - invalid response';
-    }
-  } catch (error) {
-    console.error('Demo login error:', error);
-    errorMessage.value = error.response?.data?.msg || error.message || 'Demo login failed. Please try again.';
-  } finally {
-    isDemoLoading.value = false;
-  }
+  $q.notify({
+    type: 'info',
+    message: 'Demo credentials filled. Click Sign In to continue.',
+    position: 'top',
+    timeout: 2000,
+  });
 };
 
 const goToRegister = () => {
@@ -273,6 +291,8 @@ const goToForgotPassword = () => {
 </script>
 
 <style lang="scss" scoped>
+// Theme colors - easily customizable
+// TODO: Update $primary to light green when hex code is provided
 $primary: #3294B8;
 $primary-dark: #2a7a9a;
 $dark-bg: #1a1a1a;
@@ -287,15 +307,15 @@ $text-secondary: #666666;
 .header-bar {
   background: #E0E0E0;
   color: #000000;
-  padding: 12px 16px;
-  font-size: 14px;
+  padding: 14px 16px;
+  font-size: 16px;
   font-weight: 600;
   text-align: center;
 }
 
 .login-container {
   padding: 24px 16px;
-  max-width: 400px;
+  max-width: 420px;
   margin: 0 auto;
 }
 
@@ -310,60 +330,64 @@ $text-secondary: #666666;
 }
 
 .app-title {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 700;
   margin: 0 0 8px;
+  letter-spacing: -0.5px;
 }
 
 .app-subtitle {
-  font-size: 14px;
+  font-size: 16px;
   opacity: 0.9;
   margin: 0;
 }
 
 .login-form-container {
   background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-radius: 16px;
+  padding: 28px 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 .error-banner {
   background: #ffebee;
   color: #c62828;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 13px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .form-field {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .field-label {
   display: block;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: #333;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .field-input {
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid $border;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 16px 18px;
+  border: 2px solid $border;
+  border-radius: 10px;
+  font-size: 17px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   
   &:focus {
     border-color: $primary;
+    box-shadow: 0 0 0 3px rgba($primary, 0.1);
   }
   
   &::placeholder {
     color: #999;
+    font-size: 16px;
   }
 }
 
@@ -371,36 +395,41 @@ $text-secondary: #666666;
   position: relative;
   
   .field-input {
-    padding-right: 44px;
+    padding-right: 52px;
   }
   
   .toggle-password {
     position: absolute;
-    right: 12px;
+    right: 14px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     color: #666;
     cursor: pointer;
-    padding: 4px;
+    padding: 6px;
+    font-size: 20px;
   }
 }
 
 .btn-primary {
   width: 100%;
-  padding: 14px;
+  padding: 16px;
   background: $primary;
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 15px;
+  border-radius: 10px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.1s;
   
   &:hover:not(:disabled) {
     background: $primary-dark;
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.98);
   }
   
   &:disabled {
@@ -412,7 +441,7 @@ $text-secondary: #666666;
 .divider {
   display: flex;
   align-items: center;
-  margin: 20px 0;
+  margin: 24px 0;
   
   &::before,
   &::after {
@@ -423,26 +452,31 @@ $text-secondary: #666666;
   }
   
   span {
-    padding: 0 12px;
+    padding: 0 16px;
     color: #999;
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 500;
   }
 }
 
 .btn-secondary {
   width: 100%;
-  padding: 14px;
+  padding: 16px;
   background: white;
   color: $primary;
   border: 2px solid $primary;
-  border-radius: 8px;
-  font-size: 15px;
+  border-radius: 10px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   
   &:hover:not(:disabled) {
     background: rgba($primary, 0.05);
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.98);
   }
   
   &:disabled {
@@ -453,12 +487,13 @@ $text-secondary: #666666;
 
 .forgot-password {
   text-align: center;
-  margin-top: 16px;
+  margin-top: 20px;
   
   a {
     color: $primary;
     text-decoration: none;
-    font-size: 13px;
+    font-size: 15px;
+    font-weight: 500;
     
     &:hover {
       text-decoration: underline;
@@ -469,7 +504,7 @@ $text-secondary: #666666;
 .create-account {
   text-align: center;
   margin-top: 16px;
-  font-size: 13px;
+  font-size: 15px;
   
   span {
     color: #666;
@@ -478,7 +513,7 @@ $text-secondary: #666666;
   a {
     color: $primary;
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
     margin-left: 4px;
     
     &:hover {
@@ -489,12 +524,13 @@ $text-secondary: #666666;
 
 .demo-hint {
   text-align: center;
-  margin-top: 24px;
+  margin-top: 28px;
   
   p {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
     margin: 0;
+    font-weight: 500;
   }
 }
 </style>

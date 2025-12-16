@@ -1,9 +1,21 @@
 const routes = [
-  // Auth Routes (with AuthLayout - no header/footer)
+  // Public Splash/Home Page (no auth required)
   {
     path: "/",
     component: () => import("layouts/AuthLayout.vue"),
     children: [
+      {
+        path: "",
+        component: () => import("pages/SplashPage.vue"),
+        name: "splash",
+        meta: { title: "MyCities", guest: true, public: true },
+      },
+      {
+        path: "page/:slug",
+        component: () => import("pages/PageView.vue"),
+        name: "page-view",
+        meta: { title: "Page", guest: true, public: true },
+      },
       {
         path: "login",
         component: () => import("pages/LoginPage.vue"),
@@ -70,6 +82,12 @@ const routes = [
         component: () => import("pages/user/ReadingsListPage.vue"),
         name: "readings-list",
         meta: { title: "Readings List", requiresAuth: true },
+      },
+      {
+        path: "billing-history",
+        component: () => import("pages/user/BillingHistoryPage.vue"),
+        name: "billing-history",
+        meta: { title: "Billing History", requiresAuth: true },
       },
       {
         path: "reading/:id",
@@ -175,6 +193,12 @@ const routes = [
         component: () => import("pages/admin/AdminAudit.vue"),
         name: "admin-audit",
         meta: { title: "Audit Log" },
+      },
+      {
+        path: "ads",
+        component: () => import("pages/admin/AdminAdsManager.vue"),
+        name: "admin-ads",
+        meta: { title: "Advertising Manager" },
       },
     ],
   },

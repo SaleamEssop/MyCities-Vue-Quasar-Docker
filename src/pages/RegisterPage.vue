@@ -186,10 +186,13 @@
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-import { createAccount, login, isValidEmail } from 'src/services/authStorage';
+import { useUserStore } from 'src/stores/user';
+import { setSession } from 'src/services/authStorage';
+import { userSignUp } from 'boot/axios';
 
 const router = useRouter();
 const $q = useQuasar();
+const userStore = useUserStore();
 
 // Loading state
 const isLoading = ref(false);
@@ -206,6 +209,12 @@ const form = reactive({
   confirmPassword: '',
   agreeToTerms: false,
 });
+
+// Email validation
+const isValidEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
 
 // Handle form submission
 async function handleSubmit() {
@@ -240,30 +249,56 @@ async function handleSubmit() {
   isLoading.value = true;
   
   try {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Create account
-    const newAccount = createAccount({
-      fullName: form.fullName,
-      phone: form.phone,
+    // Call API to register user
+    const response = await userSignUp({
+      name: form.fullName,
+      contact_number: form.phone,
       email: form.email,
       password: form.password,
+      password_confirmation: form.confirmPassword,
     });
     
-    // Auto-login after account creation
-    login(newAccount.email, form.password);
+    console.log('[Register] Response:', response);
     
-    $q.notify({
-      type: 'positive',
-      message: 'Account created! Welcome to MyCities.',
-      position: 'top',
-    });
+    // Handle response
+    let userData = null;
+    let token = null;
     
-    // Navigate to account setup to configure their first account
-    router.push({ name: 'account-new' });
+    if (response.status) {
+      userData = response.data;
+      token = response.token;
+    } else if (response.user || response.data) {
+      userData = response.user || response.data;
+      token = response.token || response.access_token;
+    }
+    
+    if (userData && token) {
+      // Store user and token in Pinia store
+      userStore.setUser(userData, token);
+      
+      // Write session for legacy guards
+      setSession({
+        accountId: userData.id,
+        email: userData.email,
+        fullName: userData.name || form.fullName,
+        role: 'user',
+        loginAt: new Date().toISOString(),
+      });
+      
+      $q.notify({
+        type: 'positive',
+        message: 'Account created! Welcome to MyCities.',
+        position: 'top',
+      });
+      
+      // Navigate to account setup
+      router.push({ name: 'account-new' });
+    } else {
+      errorMessage.value = response.msg || response.message || 'Registration failed. Please try again.';
+    }
   } catch (error) {
-    errorMessage.value = error.message || 'An error occurred during registration';
+    console.error('[Register] Error:', error);
+    errorMessage.value = error.response?.data?.msg || error.response?.data?.message || error.message || 'An error occurred during registration';
   } finally {
     isLoading.value = false;
   }
@@ -298,6 +333,7 @@ function goBack() {
 </script>
 
 <style scoped>
+/* Theme color - update when hex code is provided */
 .register-page {
   background: linear-gradient(135deg, #3294B8 0%, #1a5a6e 100%);
   min-height: 100vh;
@@ -320,13 +356,14 @@ function goBack() {
 }
 
 .page-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   margin: 0;
 }
 
 .register-card {
   border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 .brand-section {
@@ -346,14 +383,14 @@ function goBack() {
 }
 
 .brand-title {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   color: #3294B8;
   margin: 0 0 4px 0;
 }
 
 .brand-subtitle {
-  font-size: 14px;
+  font-size: 16px;
   color: #666;
   margin: 0;
 }
@@ -362,15 +399,40 @@ function goBack() {
   padding: 8px 0;
 }
 
+/* Increase font sizes for form inputs */
+.register-form :deep(.q-field__label) {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.register-form :deep(.q-field__native) {
+  font-size: 17px;
+  padding: 12px 0;
+}
+
+.register-form :deep(.q-field__control) {
+  min-height: 56px;
+}
+
+.register-form :deep(.q-field--outlined .q-field__control) {
+  border-radius: 10px;
+}
+
+.register-form :deep(.q-btn) {
+  font-size: 17px;
+  padding: 14px 24px;
+  border-radius: 10px;
+}
+
 .terms-text {
-  font-size: 13px;
+  font-size: 14px;
   color: #666;
 }
 
 .terms-link {
   color: #3294B8;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .terms-link:hover {
@@ -382,7 +444,8 @@ function goBack() {
   align-items: center;
   text-align: center;
   color: #999;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .divider::before,
@@ -393,12 +456,12 @@ function goBack() {
 }
 
 .divider span {
-  padding: 0 12px;
+  padding: 0 16px;
 }
 
 .signin-link {
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   color: #666;
 }
 
@@ -414,12 +477,13 @@ function goBack() {
 
 .forgot-password-link {
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .forgot-password-link .link {
   color: #3294B8;
   text-decoration: none;
+  font-weight: 500;
 }
 
 .forgot-password-link .link:hover {

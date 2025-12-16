@@ -1,7 +1,5 @@
 import { defineStore, getActivePinia } from "pinia";
 
-const activePinia = getActivePinia();
-
 export const useUserStore = defineStore("user", {
   state: () => ({
     user: null,
@@ -19,9 +17,16 @@ export const useUserStore = defineStore("user", {
       this.authToken = _authToken;
     },
     signOut() {
-      // this.user = null;
-      // this.authToken = null;
-      activePinia._s.forEach((store) => store.$reset());
+      // Get active Pinia instance at call time, not module load time
+      // This prevents stale reference issues with HMR in dev mode
+      const pinia = getActivePinia();
+      if (pinia && pinia._s) {
+        pinia._s.forEach((store) => store.$reset());
+      } else {
+        // Fallback: reset this store directly
+        this.user = null;
+        this.authToken = null;
+      }
     },
   },
   persist: true,

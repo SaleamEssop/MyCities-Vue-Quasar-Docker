@@ -94,6 +94,7 @@ module.exports = configure(function (ctx) {
       server: {
         type: "http",
       },
+      host: "0.0.0.0", // Bind to all interfaces for Docker
       port: 8080,
       open: false, // Don't auto-open browser in Docker
       headers: {
@@ -104,6 +105,25 @@ module.exports = configure(function (ctx) {
       },
       hot: true,
       liveReload: true,
+      // WebSocket configuration for HMR in Docker
+      client: {
+        webSocketURL: {
+          hostname: "localhost",
+          pathname: "/ws",
+          port: 8080,
+          protocol: "ws",
+        },
+        overlay: true,
+        progress: true,
+      },
+      // Watch options for Docker/Windows file system
+      watchFiles: {
+        paths: ["src/**/*"],
+        options: {
+          usePolling: true,
+          interval: 1000,
+        },
+      },
       // Webpack dev middleware options
       devMiddleware: {
         headers: {
@@ -113,7 +133,10 @@ module.exports = configure(function (ctx) {
       // Static file options
       static: {
         serveIndex: true,
-        watch: true,
+        watch: {
+          usePolling: true,
+          interval: 1000,
+        },
       },
     },
 
@@ -168,7 +191,42 @@ module.exports = configure(function (ctx) {
     // https://v2.quasar.dev/quasar-cli-webpack/developing-pwa/configuring-pwa
     pwa: {
       workboxPluginMode: "GenerateSW", // 'GenerateSW' or 'InjectManifest'
-      workboxOptions: {}, // only for GenerateSW
+      workboxOptions: {
+        skipWaiting: true,
+        clientsClaim: true,
+        // Cache strategies
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'google-fonts-stylesheets',
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+            },
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+        ],
+      },
 
       // for the custom service worker ONLY (/src-pwa/custom-service-worker.[js|ts])
       // if using workbox in InjectManifest mode
@@ -180,16 +238,27 @@ module.exports = configure(function (ctx) {
       },
 
       manifest: {
-        name: `MyCities`,
-        short_name: `MyCities`,
-        description: `Water Meter Reading Application`,
+        name: "MyCities",
+        short_name: "MyCities",
+        description: "MyCities Water & Electricity Meter Reading Application",
         display: "standalone",
         orientation: "portrait",
         background_color: "#ffffff",
         theme_color: "#3294B8",
+        start_url: "/",
+        scope: "/",
+        lang: "en",
+        dir: "ltr",
+        categories: ["utilities", "lifestyle"],
         icons: [
           {
-            src: "icons/icon-128x128.png",
+            src: "icons/icon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any",
+          },
+          {
+            src: "icons/favicon-128x128.png",
             sizes: "128x128",
             type: "image/png",
           },
@@ -197,6 +266,7 @@ module.exports = configure(function (ctx) {
             src: "icons/icon-192x192.png",
             sizes: "192x192",
             type: "image/png",
+            purpose: "any maskable",
           },
           {
             src: "icons/icon-256x256.png",
@@ -212,8 +282,27 @@ module.exports = configure(function (ctx) {
             src: "icons/icon-512x512.png",
             sizes: "512x512",
             type: "image/png",
+            purpose: "any maskable",
           },
         ],
+        // PWA shortcuts for quick actions
+        shortcuts: [
+          {
+            name: "Add Reading",
+            short_name: "Reading",
+            description: "Add a new meter reading",
+            url: "/#/dashboard",
+            icons: [{ src: "icons/icon-192x192.png", sizes: "192x192" }],
+          },
+        ],
+      },
+
+      // Meta tags for Apple/iOS
+      metaVariables: {
+        appleMobileWebAppCapable: 'yes',
+        appleMobileWebAppStatusBarStyle: 'black-translucent',
+        appleMobileWebAppTitle: 'MyCities',
+        msapplicationTileColor: '#3294B8',
       },
     },
 

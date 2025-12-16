@@ -56,8 +56,20 @@
               <span class="unit">kl</span>
             </div>
           </div>
-          <div class="reading-source" v-if="reading.isEstimated">
-            <q-badge color="orange" label="Estimated" />
+          <div class="reading-actions">
+            <div class="reading-source" v-if="reading.isEstimated">
+              <q-badge color="orange" label="Estimated" />
+            </div>
+            <q-btn
+              flat
+              dense
+              round
+              icon="delete"
+              color="negative"
+              size="sm"
+              @click="confirmDeleteReading(reading, 'water')"
+              class="delete-btn"
+            />
           </div>
         </div>
 
@@ -132,8 +144,20 @@
               <span class="unit">kWh</span>
             </div>
           </div>
-          <div class="reading-source" v-if="reading.isEstimated">
-            <q-badge color="orange" label="Estimated" />
+          <div class="reading-actions">
+            <div class="reading-source" v-if="reading.isEstimated">
+              <q-badge color="orange" label="Estimated" />
+            </div>
+            <q-btn
+              flat
+              dense
+              round
+              icon="delete"
+              color="negative"
+              size="sm"
+              @click="confirmDeleteReading(reading, 'electricity')"
+              class="delete-btn"
+            />
           </div>
         </div>
 
@@ -224,9 +248,13 @@
 
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import seedData from 'src/services/seedData';
+import { useQuasar } from 'quasar';
+import { api, deleteMeterReadings } from 'src/boot/axios';
+import { useReadingStore } from 'src/stores/reading';
 
 const router = useRouter();
+const $q = useQuasar();
+const readingStore = useReadingStore();
 
 // Data
 const periods = ref([]);
@@ -323,11 +351,11 @@ const nextPeriod = () => {
 };
 
 const goToWaterReading = () => {
-  router.push({ name: 'water-reading' });
+  router.push({ name: 'enter-readings' });
 };
 
 const goToElectricityReading = () => {
-  router.push({ name: 'electricity-reading' });
+  router.push({ name: 'enter-readings' });
 };
 
 // Helper functions for reading badges
@@ -353,16 +381,130 @@ const goBack = () => {
   router.push({ name: 'home' });
 };
 
-const loadData = () => {
-  seedData.initializeSeedData();
-  periods.value = seedData.getBillingPeriods();
-  meters.value = seedData.getMeters();
-  waterReadings.value = seedData.getWaterReadings();
-  electricityReadings.value = seedData.getElectricityReadings();
-  
-  // Find current period index
-  const currentIdx = periods.value.findIndex(p => p.status === 'current');
-  currentPeriodIndex.value = currentIdx >= 0 ? currentIdx : 0;
+const loadData = async () => {
+  try {
+    // Fetch dashboard data to get meter info and period info
+    const dashResponse = await api().get('/v1/billing/dashboard');
+    if (dashResponse.success && dashResponse.data) {
+      const data = dashResponse.data;
+      
+      // Set meters info
+      meters.value = {
+        water: data.water?.meter || null,
+        electricity: data.electricity?.meter || null
+      };
+      
+      // Create current period from billing period
+      const currentPeriodData = {
+        id: 'current',
+        status: 'current',
+        startDate: data.billing_period?.start,
+        endDate: data.billing_period?.end
+      };
+      periods.value = [currentPeriodData];
+      currentPeriodIndex.value = 0;
+      
+      // Fetch readings for water meter
+      if (meters.value.water) {
+        const waterResponse = await api().get(`/v1/meters/${meters.value.water.id}/readings`);
+        if (waterResponse.success) {
+          waterReadings.value = (waterResponse.data?.readings || []).map(r => ({
+            ...r,
+            periodId: 'current',
+            type: r.reading_type || 'reading',
+            redValue: r.value ? String(Math.floor(r.value)) : '0',
+            blackValue: r.value ? String(Math.round((r.value % 1) * 100)).padStart(2, '0') : '00',
+            kiloliters: r.value || 0
+          }));
+        }
+      }
+      
+      // Fetch readings for electricity meter
+      if (meters.value.electricity) {
+        const elecResponse = await api().get(`/v1/meters/${meters.value.electricity.id}/readings`);
+        if (elecResponse.success) {
+          electricityReadings.value = (elecResponse.data?.readings || []).map(r => ({
+            ...r,
+            periodId: 'current',
+            type: r.reading_type || 'reading',
+            value: r.value || 0,
+            kwh: r.value || 0
+          }));
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load readings data:', error);
+    $q.notify({
+      message: 'Failed to load readings data',
+      color: 'negative',
+      position: 'top'
+    });
+  }
+};
+
+const confirmDeleteReading = (reading, meterType) => {
+  $q.dialog({
+    title: 'Delete Reading',
+    message: `Are you sure you want to delete this ${meterType} reading from ${formatDate(reading.date)}? This action cannot be undone.`,
+    cancel: true,
+    persistent: true,
+    color: 'negative'
+  }).onOk(() => {
+    deleteReading(reading, meterType);
+  });
+};
+
+const deleteReading = async (reading, meterType) => {
+  try {
+    // Check if reading has an id (from API) or needs to be handled differently
+    if (!reading.id) {
+      $q.notify({
+        message: 'Cannot delete: Reading ID not found',
+        color: 'negative',
+        icon: 'error'
+      });
+      return;
+    }
+
+    // Call API to delete
+    const response = await deleteMeterReadings({ reading_id: reading.id });
+    
+    if (response && response.status) {
+      // Remove from reading store
+      if (reading.id) {
+        readingStore.deleteReadings(reading.id);
+      }
+
+      // Remove from local state
+      if (meterType === 'water') {
+        const index = waterReadings.value.findIndex(r => r.id === reading.id);
+        if (index > -1) {
+          waterReadings.value.splice(index, 1);
+        }
+      } else {
+        const index = electricityReadings.value.findIndex(r => r.id === reading.id);
+        if (index > -1) {
+          electricityReadings.value.splice(index, 1);
+        }
+      }
+
+      $q.notify({
+        message: 'Reading deleted successfully',
+        color: 'positive',
+        icon: 'check_circle'
+      });
+    } else {
+      throw new Error(response?.message || 'Failed to delete reading');
+    }
+  } catch (error) {
+    console.error('Delete reading error:', error);
+    $q.notify({
+      message: error.message || 'Failed to delete reading. Please try again.',
+      color: 'negative',
+      icon: 'error'
+    });
+  }
 };
 
 onMounted(() => {
@@ -454,6 +596,21 @@ onMounted(() => {
   justify-content: space-between;
   padding: 12px 0;
   border-bottom: 1px solid #f0f0f0;
+}
+
+.reading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.delete-btn {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+  opacity: 1;
 }
 
 .reading-row:last-child {

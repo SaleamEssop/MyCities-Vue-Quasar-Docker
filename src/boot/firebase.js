@@ -125,34 +125,8 @@ export default boot(async ({ router, app }) => {
     // DON'T fetch data on boot - wait until user is logged in
     // updateAllData();
 
-    // Navigation guard for authentication
-    router.beforeEach((to, from, next) => {
-      const user = userStore.getUser;
-      
-      // Check if route or any parent requires auth
-      const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-      const isGuestRoute = to.matched.some(record => record.meta.guest);
-      
-      console.log('[Router Guard]', { 
-        path: to.path, 
-        name: to.name,
-        requiresAuth, 
-        isGuestRoute,
-        hasUser: !!user 
-      });
-      
-      if (requiresAuth && !user) {
-        // Redirect to login if not authenticated
-        console.log('[Router Guard] Redirecting to login - no user');
-        next({ name: 'login' });
-      } else if (user && isGuestRoute && to.name === 'login') {
-        // Redirect to account select if already authenticated and trying to access login
-        console.log('[Router Guard] Redirecting to account-select - user already logged in');
-        next({ name: 'account-select' });
-      } else {
-        next();
-      }
-    });
+    // NOTE: Router guard is handled in router/index.js
+    // Removed conflicting router guard from here to prevent navigation issues
     
     console.log("[firebase boot] Complete!");
   } catch (error) {

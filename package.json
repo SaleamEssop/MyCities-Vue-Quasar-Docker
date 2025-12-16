@@ -35,6 +35,15 @@
     "@capacitor/core": "^2.0.0",
     "@ionic/pwa-elements": "^3.1.1",
     "@quasar/extras": "^1.0.0",
+    "@tiptap/extension-color": "^3.13.0",
+    "@tiptap/extension-image": "^3.13.0",
+    "@tiptap/extension-link": "^3.13.0",
+    "@tiptap/extension-placeholder": "^3.13.0",
+    "@tiptap/extension-text-align": "^3.13.0",
+    "@tiptap/extension-text-style": "^3.13.0",
+    "@tiptap/extension-underline": "^3.13.0",
+    "@tiptap/starter-kit": "^3.13.0",
+    "@tiptap/vue-3": "^3.13.0",
     "@vue-leaflet/vue-leaflet": "^0.6.1",
     "axios": "^0.21.1",
     "core-js": "^3.6.5",
@@ -70,7 +79,8 @@
     "jsdom": "^22.0.0",
     "prettier": "^2.5.1",
     "storybook": "^7.6.17",
-    "vitest": "^1.0.0"
+    "vitest": "^1.0.0",
+    "workbox-webpack-plugin": "^7.4.0"
   },
   "browserslist": [
     "last 10 Chrome versions",

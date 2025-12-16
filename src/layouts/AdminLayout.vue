@@ -101,6 +101,18 @@
           <q-item-section>Tariffs</q-item-section>
         </q-item>
 
+        <q-item 
+          clickable 
+          v-ripple 
+          :to="{ name: 'admin-ads' }"
+          active-class="bg-deep-purple-1 text-deep-purple"
+        >
+          <q-item-section avatar>
+            <q-icon name="campaign" />
+          </q-item-section>
+          <q-item-section>Advertising</q-item-section>
+        </q-item>
+
         <q-separator class="q-my-md" />
 
         <q-item-label header class="text-grey-8">

@@ -1,6 +1,8 @@
 <template>
-  <q-page class="admin-login-page">
-    <div class="login-container">
+  <q-layout>
+    <q-page-container>
+      <q-page class="admin-login-page">
+        <div class="login-container">
       <div class="login-card">
         <!-- Header -->
         <div class="login-header">
@@ -96,6 +98,8 @@
       </div>
     </div>
   </q-page>
+    </q-page-container>
+  </q-layout>
 </template>
 
 <script setup>

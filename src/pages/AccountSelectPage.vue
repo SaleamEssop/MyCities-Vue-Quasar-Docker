@@ -206,12 +206,6 @@ function selectAccount(account) {
   // Save selected account to session and navigate directly
   localStorage.setItem('mycities_selected_account', account.id);
   
-  $q.notify({
-    type: 'positive',
-    message: `Account "${account.name}" selected`,
-    position: 'top',
-  });
-  
   router.push({ name: 'home' });
 }
 
@@ -220,12 +214,6 @@ function continueWithAccount() {
   
   // Save selected account to session
   localStorage.setItem('mycities_selected_account', selectedAccountId.value);
-  
-  $q.notify({
-    type: 'positive',
-    message: 'Account selected',
-    position: 'top',
-  });
   
   router.push({ name: 'home' });
 }

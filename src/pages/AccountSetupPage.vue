@@ -33,7 +33,7 @@
             <!-- Section: Region & Tariff -->
             <div class="section-title">Region & Tariff</div>
             
-            <!-- Region Selection -->
+            <!-- Region Selection (locked in edit mode) -->
             <q-select
               v-model="form.regionId"
               :options="regionOptions"
@@ -42,17 +42,20 @@
               emit-value
               map-options
               :loading="loadingRegions"
+              :disable="isEditMode"
+              :readonly="isEditMode"
               :rules="[val => !!val || 'Region is required']"
               @update:model-value="onRegionChange"
               data-test="setup-region"
               class="q-mb-md"
+              :hint="isEditMode ? 'Region cannot be changed after account creation' : ''"
             >
               <template v-slot:prepend>
                 <q-icon name="location_city" />
               </template>
             </q-select>
 
-            <!-- Tariff Template Selection -->
+            <!-- Tariff Template Selection (locked in edit mode) -->
             <q-select
               v-model="form.tariffId"
               :options="tariffOptions"
@@ -61,11 +64,13 @@
               emit-value
               map-options
               :loading="loadingTariffs"
-              :disable="!form.regionId"
+              :disable="isEditMode || !form.regionId"
+              :readonly="isEditMode"
               :rules="[val => !!val || 'Tariff template is required']"
               @update:model-value="onTariffChange"
               data-test="setup-tariff"
               class="q-mb-md"
+              :hint="isEditMode ? 'Tariff cannot be changed after account creation' : ''"
             >
               <template v-slot:prepend>
                 <q-icon name="receipt_long" />
@@ -114,75 +119,77 @@
               </template>
             </q-input>
 
-            <!-- Section: Billing Dates -->
-            <div class="section-title">Billing Schedule</div>
+            <!-- Section: Billing Dates (hidden for Date-to-Date tariffs) -->
+            <template v-if="!isDateToDate">
+              <div class="section-title">Billing Schedule</div>
 
-            <!-- Billing Day -->
-            <q-select
-              v-model="form.billingDay"
-              :options="billingDayOptions"
-              label="Billing Day *"
-              outlined
-              emit-value
-              map-options
-              :rules="[val => !!val || 'Billing day is required']"
-              @update:model-value="onBillingDayChange"
-              data-test="setup-billing-day"
-              class="q-mb-md"
-            >
-              <template v-slot:prepend>
-                <q-icon name="event" />
-              </template>
-            </q-select>
+              <!-- Billing Day -->
+              <q-select
+                v-model="form.billingDay"
+                :options="billingDayOptions"
+                label="Billing Day *"
+                outlined
+                emit-value
+                map-options
+                :rules="[val => isDateToDate || !!val || 'Billing day is required']"
+                @update:model-value="onBillingDayChange"
+                data-test="setup-billing-day"
+                class="q-mb-md"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="event" />
+                </template>
+              </q-select>
 
-            <!-- Read Day (Auto-calculated) -->
-            <q-input
-              v-model="form.readDay"
-              label="Read Day (Auto-calculated)"
-              outlined
-              readonly
-              disable
-              hint="Automatically set to 5 days before billing day"
-              data-test="setup-read-day"
-              class="q-mb-md"
-            >
-              <template v-slot:prepend>
-                <q-icon name="schedule" />
-              </template>
-            </q-input>
+              <!-- Read Day (Auto-calculated) -->
+              <q-input
+                v-model="form.readDay"
+                label="Read Day (Auto-calculated)"
+                outlined
+                readonly
+                disable
+                hint="Automatically set to 5 days before billing day"
+                data-test="setup-read-day"
+                class="q-mb-md"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="schedule" />
+                </template>
+              </q-input>
 
-            <!-- Section: Contact Emails -->
-            <div class="section-title">Contact Emails</div>
+              <!-- Section: Contact Emails -->
+              <div class="section-title">Contact Emails</div>
 
-            <!-- Water Email -->
-            <q-input
-              v-model="form.waterEmail"
-              type="email"
-              label="Water Department Email"
-              outlined
-              :hint="isEthekwini ? 'Auto-filled for Ethekwini region' : 'Email for water queries'"
-              data-test="setup-water-email"
-              class="q-mb-md"
-            >
-              <template v-slot:prepend>
-                <q-icon name="water_drop" color="blue" />
-              </template>
-            </q-input>
+              <!-- Water Email -->
+              <q-input
+                v-model="form.waterEmail"
+                type="email"
+                label="Water Department Email"
+                outlined
+                :hint="isEthekwini ? 'Auto-filled for Ethekwini region' : 'Email for water queries'"
+                data-test="setup-water-email"
+                class="q-mb-md"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="water_drop" color="blue" />
+                </template>
+              </q-input>
 
-            <!-- Electricity Email -->
-            <q-input
-              v-model="form.electricityEmail"
-              type="email"
-              label="Electricity Department Email"
-              outlined
-              :hint="isEthekwini ? 'Auto-filled for Ethekwini region' : 'Email for electricity queries'"
-              data-test="setup-electricity-email"
-              class="q-mb-md"
-            >
-              <template v-slot:prepend>
-                <q-icon name="bolt" color="amber" />
-              </template>
-            </q-input>
+              <!-- Electricity Email -->
+              <q-input
+                v-model="form.electricityEmail"
+                type="email"
+                label="Electricity Department Email"
+                outlined
+                :hint="isEthekwini ? 'Auto-filled for Ethekwini region' : 'Email for electricity queries'"
+                data-test="setup-electricity-email"
+                class="q-mb-md"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="bolt" color="amber" />
+                </template>
+              </q-input>
+            </template>
 
             <!-- Section: Customer Costs (Editable) -->
             <template v-if="customerCosts.length > 0">
@@ -234,44 +241,6 @@
                 <q-icon name="badge" />
               </template>
             </q-input>
-
-            <!-- Bill Preview -->
-            <template v-if="billPreview">
-              <div class="section-title">Bill Preview</div>
-              <q-card flat bordered class="bill-preview q-mb-md">
-                <q-card-section>
-                  <div class="preview-row">
-                    <span>Water:</span>
-                    <span>R{{ billPreview.water?.total?.toFixed(2) || '0.00' }}</span>
-                  </div>
-                  <div class="preview-row">
-                    <span>Electricity:</span>
-                    <span>R{{ billPreview.electricity?.total?.toFixed(2) || '0.00' }}</span>
-                  </div>
-                  <div class="preview-row">
-                    <span>Fixed Costs:</span>
-                    <span>R{{ billPreview.fixed_costs?.total?.toFixed(2) || '0.00' }}</span>
-                  </div>
-                  <div class="preview-row">
-                    <span>Customer Costs:</span>
-                    <span>R{{ billPreview.customer_costs?.total?.toFixed(2) || '0.00' }}</span>
-                  </div>
-                  <div class="preview-row">
-                    <span>VAT ({{ billPreview.vat?.percentage || 15 }}%):</span>
-                    <span>R{{ billPreview.vat?.amount?.toFixed(2) || '0.00' }}</span>
-                  </div>
-                  <div class="preview-row">
-                    <span>Rates:</span>
-                    <span>R{{ billPreview.rates?.net?.toFixed(2) || '0.00' }}</span>
-                  </div>
-                  <q-separator class="q-my-sm" />
-                  <div class="preview-row total">
-                    <span>Estimated Total:</span>
-                    <span>R{{ billPreview.total?.toFixed(2) || '0.00' }}</span>
-                  </div>
-                </q-card-section>
-              </q-card>
-            </template>
 
             <!-- Submit Button -->
             <q-btn
@@ -341,7 +310,6 @@ const isEditMode = computed(() => !!route.params.accountId);
 const regions = ref([]);
 const tariffs = ref([]);
 const tariffDetails = ref(null);
-const billPreview = ref(null);
 const customerCosts = ref([]);
 
 // Form data
@@ -374,6 +342,15 @@ const isEthekwini = computed(() => {
   if (!selectedRegion) return false;
   const name = selectedRegion.name.toLowerCase();
   return name.includes('ethekwini') || name.includes('durban');
+});
+
+// Check if tariff is Date-to-Date (no billing schedule or emails needed)
+const isDateToDate = computed(() => {
+  if (!tariffDetails.value) return false;
+  const billingType = tariffDetails.value.billing_type || '';
+  return billingType.toUpperCase() === 'DATE_TO_DATE' || 
+         billingType.toLowerCase().includes('date to date') ||
+         billingType.toLowerCase().includes('date-to-date');
 });
 
 // Options
@@ -448,7 +425,6 @@ async function onRegionChange(regionId) {
   form.tariffId = null;
   tariffs.value = [];
   tariffDetails.value = null;
-  billPreview.value = null;
   customerCosts.value = [];
   
   // Auto-fill emails for Ethekwini
@@ -495,7 +471,6 @@ async function loadTariffsForRegion(regionId) {
 async function onTariffChange(tariffId) {
   if (!tariffId) {
     tariffDetails.value = null;
-    billPreview.value = null;
     customerCosts.value = [];
     return;
   }
@@ -531,32 +506,11 @@ async function loadTariffDetails(tariffId) {
   }
 }
 
-// Load bill preview
-async function loadBillPreview(tariffId) {
-  try {
-    const response = await setupApi.previewBill(tariffId, {
-      customer_costs: customerCosts.value,
-    });
-    if (response.success) {
-      billPreview.value = response.data;
-    }
-  } catch (error) {
-    console.error('Error loading bill preview:', error);
-  }
-}
-
 // Handle billing day change
 function onBillingDayChange(billingDay) {
   // Auto-calculate read day (5 days before billing)
   form.readDay = setupApi.calculateReadDay(billingDay);
 }
-
-// Watch customer costs for changes and update preview
-watch(customerCosts, async () => {
-  if (form.tariffId) {
-    await loadBillPreview(form.tariffId);
-  }
-}, { deep: true });
 
 // Initialize Google Places Autocomplete
 async function initGooglePlaces() {
@@ -779,22 +733,5 @@ function goBack() {
 .cost-value {
   flex: 1;
   min-width: 120px;
-}
-
-.bill-preview {
-  background: #f5f5f5;
-}
-
-.preview-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 14px;
-}
-
-.preview-row.total {
-  font-weight: 700;
-  font-size: 16px;
-  color: #3294B8;
 }
 </style>
