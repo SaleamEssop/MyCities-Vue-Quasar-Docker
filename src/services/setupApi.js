@@ -10,8 +10,18 @@
  * All billing calculations come from the backend BillingEngine.
  */
 
-// API base URL - change this when deploying
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+// API base URL - auto-detect based on environment
+function getApiBaseUrl() {
+  // If running on the production domain, use relative path (same origin)
+  if (window.location.hostname === 'mycities.co.za' || window.location.hostname === 'www.mycities.co.za') {
+    // Production: use same protocol and host
+    return `${window.location.protocol}//${window.location.host}/api/v1`;
+  }
+  // Local development
+  return 'http://localhost:8000/api/v1';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Helper function to make API requests
