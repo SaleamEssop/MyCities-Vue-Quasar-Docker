@@ -8,19 +8,26 @@ import { precacheAndRoute } from 'workbox-precaching'
 // Use with precache injection
 precacheAndRoute(self.__WB_MANIFEST)
 
-// Custom caching strategies can be added here
-// For example, cache API responses:
-/*
-import { registerRoute } from 'workbox-routing'
-import { StaleWhileRevalidate } from 'workbox-strategies'
+// Skip waiting immediately when a new service worker is available
+// This ensures users always get the latest version
+self.addEventListener('install', () => {
+  console.log('Service worker installing, skipping wait...')
+  self.skipWaiting()
+})
 
-registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
-  new StaleWhileRevalidate({
-    cacheName: 'api-cache',
-  })
-)
-*/
+// Claim all clients immediately
+self.addEventListener('activate', (event) => {
+  console.log('Service worker activating, claiming clients...')
+  event.waitUntil(self.clients.claim())
+})
+
+// Listen for SKIP_WAITING message from the app
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('Received SKIP_WAITING message, activating new service worker...')
+    self.skipWaiting()
+  }
+})
 
 // Handle offline fallback
 self.addEventListener('fetch', (event) => {

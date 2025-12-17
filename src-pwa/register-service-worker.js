@@ -11,24 +11,46 @@ register(process.env.SERVICE_WORKER_FILE, {
 
   // registrationOptions: { scope: './' },
 
-  ready (/* registration */) {
+  ready (registration) {
     console.log('MyCities service worker is active.')
+    // Check for updates every 60 seconds
+    setInterval(() => {
+      registration.update()
+    }, 60 * 1000)
   },
 
-  registered (/* registration */) {
+  registered (registration) {
     console.log('MyCities service worker has been registered.')
+    // Check for updates immediately after registration
+    registration.update()
   },
 
   cached (/* registration */) {
     console.log('MyCities content has been cached for offline use.')
   },
 
-  updatefound (/* registration */) {
+  updatefound (registration) {
     console.log('New MyCities content is downloading.')
+    const installingWorker = registration.installing
+    if (installingWorker) {
+      installingWorker.addEventListener('statechange', () => {
+        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // New content available, auto-reload
+          console.log('New content installed, reloading...')
+          window.location.reload()
+        }
+      })
+    }
   },
 
-  updated (/* registration */) {
-    console.log('New MyCities content is available; please refresh.')
+  updated (registration) {
+    console.log('New MyCities content is available, refreshing...')
+    // Skip waiting and activate new service worker immediately
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+    }
+    // Force reload to get new content
+    window.location.reload()
   },
 
   offline () {

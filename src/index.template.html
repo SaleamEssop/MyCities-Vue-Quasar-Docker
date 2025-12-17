@@ -32,12 +32,13 @@
     <!-- Microsoft Tile -->
     <meta name="msapplication-TileImage" content="icons/icon-192x192.png">
 
-    <!-- Prevent caching in development -->
-    <% if (ctx.dev) { %>
+    <!-- Prevent HTML caching - always get fresh content -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <% } %>
+    
+    <!-- App version for cache busting -->
+    <meta name="app-version" content="<%= new Date().getTime() %>">
   </head>
   <body>
     <!-- DO NOT touch the following DIV -->
