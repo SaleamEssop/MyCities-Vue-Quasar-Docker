@@ -35,7 +35,7 @@
             :disabled="!canGoBack" 
             @click="goToPreviousPeriod"
           >
-            ←
+            â†
           </button>
           <div class="total-amount" data-test="total-amount">
             R{{ formatAmount(currentPeriodData?.totals?.grand_total || 0) }}
@@ -45,7 +45,7 @@
             :disabled="!canGoForward" 
             @click="goToNextPeriod"
           >
-            →
+            â†’
           </button>
         </div>
 
@@ -1074,5 +1074,78 @@ $text-secondary: #666666;
   padding-top: 0;
   padding-bottom: 0;
 }
+
+.usage-stats-row {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(78, 205, 196, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.usage-stat {
+  text-align: center;
+  flex: 1;
+}
+
+.usage-stat .stat-label {
+  display: block;
+  font-size: 10px;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.usage-stat .stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.reading-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.reading-status.actual { background: #e8f5e9; color: #2e7d32; }
+.reading-status.calculated { background: #e3f2fd; color: #1565c0; }
+.reading-status.estimated { background: #fff3e0; color: #ef6c00; }
+
+.meter-breakdown-compact {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.meter-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.meter-item:last-child { border-bottom: none; }
+.meter-name { font-weight: 500; flex: 1; }
+.meter-reading { color: #666; flex: 1; text-align: center; }
+.meter-used { font-weight: 600; color: #4ECDC4; }
+
+.summary-row.adjustment {
+  background: #fff8e1;
+  margin: 4px -15px;
+  padding: 8px 15px;
+}
+
+.summary-row.adjustment.credit { background: #e8f5e9; }
+.summary-row.adjustment.owing { background: #ffebee; }
 </style>
 
