@@ -35,7 +35,7 @@
             :disabled="!canGoBack" 
             @click="goToPreviousPeriod"
           >
-            â†
+            Ã¢â€ Â
           </button>
           <div class="total-amount" data-test="total-amount">
             R{{ formatAmount(currentPeriodData?.totals?.grand_total || 0) }}
@@ -45,7 +45,7 @@
             :disabled="!canGoForward" 
             @click="goToNextPeriod"
           >
-            â†’
+            Ã¢â€ â€™
           </button>
         </div>
 
@@ -1147,5 +1147,86 @@ $text-secondary: #666666;
 
 .summary-row.adjustment.credit { background: #e8f5e9; }
 .summary-row.adjustment.owing { background: #ffebee; }
+
+/* Usage Stats Box for Past Periods */
+.usage-stats-box {
+  display: flex;
+  justify-content: space-around;
+  background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.usage-stat-item {
+  text-align: center;
+  color: white;
+}
+
+.usage-stat-item .stat-label {
+  display: block;
+  font-size: 11px;
+  opacity: 0.9;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.usage-stat-item .stat-value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Meter Breakdown Box */
+.meter-breakdown-box {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 15px;
+}
+
+.breakdown-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.meter-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #eee;
+}
+
+.meter-line:last-child {
+  border-bottom: none;
+}
+
+.meter-name {
+  font-weight: 500;
+  flex: 1;
+}
+
+.meter-readings {
+  color: #666;
+  flex: 1;
+  text-align: center;
+}
+
+.meter-units {
+  font-weight: 600;
+  color: #4ECDC4;
+  flex: 0.8;
+  text-align: right;
+}
+
+.meter-cost {
+  font-weight: 600;
+  flex: 0.6;
+  text-align: right;
+}
 </style>
 
