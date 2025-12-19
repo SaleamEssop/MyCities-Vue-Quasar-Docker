@@ -35,7 +35,7 @@
             :disabled="!canGoBack" 
             @click="goToPreviousPeriod"
           >
-            ←
+            &#8592;
           </button>
           <div class="total-amount" data-test="total-amount">
             R{{ formatAmount(currentPeriodData?.totals?.grand_total || 0) }}
@@ -45,7 +45,7 @@
             :disabled="!canGoForward" 
             @click="goToNextPeriod"
           >
-            →
+            &#8594;
           </button>
         </div>
 
@@ -62,15 +62,35 @@
 
         <!-- Past Period Summary (when viewing historical data) -->
         <div v-if="isViewingPastPeriod && currentPeriodData?.pastPeriodData" class="past-period-summary">
+          <!-- Usage Statistics Box -->
+          <div class="usage-stats-box">
+            <div class="usage-stat-item">
+              <span class="stat-label">Total Used</span>
+              <span class="stat-value">{{ currentPeriodData.pastPeriodData.total_used || 0 }} L</span>
+            </div>
+            <div class="usage-stat-item">
+              <span class="stat-label">Daily Avg</span>
+              <span class="stat-value">{{ formatAmount(currentPeriodData.pastPeriodData.daily_usage) }} L/day</span>
+            </div>
+            <div class="usage-stat-item">
+              <span class="stat-label">Period</span>
+              <span class="stat-value">{{ currentPeriodData.pastPeriodData.days }} days</span>
+            </div>
+          </div>
+
+          <!-- Meter Breakdown -->
+          <div v-if="currentPeriodData.pastPeriodData.meters && currentPeriodData.pastPeriodData.meters.length > 0" class="meter-breakdown-box">
+            <div class="breakdown-title">Meter Readings</div>
+            <div v-for="meter in currentPeriodData.pastPeriodData.meters" :key="meter.meter_id" class="meter-line">
+              <span class="meter-name">{{ meter.meter_title || meter.meter_type }}</span>
+              <span class="meter-readings">{{ meter.opening_reading }} to {{ meter.closing_reading }}</span>
+              <span class="meter-units">{{ parseFloat(meter.units_used || 0).toFixed(0) }} {{ (meter.meter_title || meter.meter_type || "").toLowerCase().includes("elec") ? "kWh" : "kL" }}</span>
+            </div>
+          </div>
+
           <div class="summary-row">
             <span>Consumption ({{ currentPeriodData.pastPeriodData.days }} days)</span>
             <span>R{{ formatAmount(currentPeriodData.pastPeriodData.consumption_charge) }}</span>
-          </div>
-          <div v-if="currentPeriodData.pastPeriodData.balance_bf !== 0" class="summary-row">
-            <span>{{ currentPeriodData.pastPeriodData.balance_bf < 0 ? 'Credit B/F' : 'Balance B/F' }}</span>
-            <span :class="{ 'credit': currentPeriodData.pastPeriodData.balance_bf < 0 }">
-              R{{ currentPeriodData.pastPeriodData.balance_bf < 0 ? '-' : '' }}{{ formatAmount(Math.abs(currentPeriodData.pastPeriodData.balance_bf)) }}
-            </span>
           </div>
           <div v-for="payment in currentPeriodData.pastPeriodData.payments" :key="payment.id" class="summary-row payment">
             <span>Payment - {{ formatDate(payment.date) }}</span>
@@ -78,9 +98,7 @@
           </div>
           <div class="summary-row balance">
             <span>Balance</span>
-            <span :class="{ 'credit': currentPeriodData.pastPeriodData.balance < 0 }">
-              R{{ currentPeriodData.pastPeriodData.balance < 0 ? '-' : '' }}{{ formatAmount(Math.abs(currentPeriodData.pastPeriodData.balance)) }}
-            </span>
+            <span>R{{ formatAmount(currentPeriodData.pastPeriodData.balance) }}</span>
           </div>
         </div>
 
@@ -115,13 +133,62 @@
         </div>
 
         <!-- Water Billing Summary -->
+        <!-- Water Billing Summary -->
         <div class="billing-summary">
+          <!-- Show/Hide Details Button -->
+          <div class="details-toggle" @click="toggleWaterDetails">
+            <span>{{ showWaterDetails ? 'Hide Details' : 'Show Details' }}</span>
+            <q-icon :name="showWaterDetails ? 'expand_less' : 'expand_more'" size="20px" />
+          </div>
+
+          <!-- Detailed Breakdown (when expanded) -->
+          <div v-if="showWaterDetails && currentPeriodData.water.charges?.breakdown" class="breakdown-details">
+            <!-- Water In Tiers -->
+            <template v-for="item in currentPeriodData.water.charges.breakdown.filter(b => b.type === 'water_in')" :key="'wi-'+item.tier">
+              <div class="billing-row detail-row">
+                <span class="billing-label">{{ item.label }}</span>
+                <span class="billing-amount">R {{ formatAmount(item.charge) }}</span>
+              </div>
+            </template>
+
+            <!-- Water Out (Sewerage) -->
+            <template v-for="(item, idx) in currentPeriodData.water.charges.breakdown.filter(b => b.type === 'water_out')" :key="'wo-'+idx">
+              <div class="billing-row detail-row">
+                <span class="billing-label">{{ item.label }}</span>
+                <span class="billing-amount">R {{ formatAmount(item.charge) }}</span>
+              </div>
+            </template>
+
+            <!-- Additional Charges -->
+            <template v-for="(item, idx) in currentPeriodData.water.charges.breakdown.filter(b => b.type === 'additional')" :key="'add-'+idx">
+              <div class="billing-row detail-row">
+                <span class="billing-label">{{ item.label }}</span>
+                <span class="billing-amount">R {{ formatAmount(item.charge) }}</span>
+              </div>
+            </template>
+
+            <!-- Fixed Costs -->
+            <template v-for="(item, idx) in currentPeriodData.water.charges.breakdown.filter(b => b.type === 'fixed')" :key="'fix-'+idx">
+              <div class="billing-row detail-row">
+                <span class="billing-label">{{ item.label }}</span>
+                <span class="billing-amount">R {{ formatAmount(item.charge) }}</span>
+              </div>
+            </template>
+
+            <!-- Customer Costs -->
+            <template v-for="(item, idx) in currentPeriodData.water.charges.breakdown.filter(b => b.type === 'customer')" :key="'cust-'+idx">
+              <div class="billing-row detail-row">
+                <span class="billing-label">{{ item.label }}</span>
+                <span class="billing-amount">R {{ formatAmount(item.charge) }}</span>
+              </div>
+            </template>
+          </div>
+
           <!-- Consumption Total -->
           <div class="billing-row">
             <span class="billing-label"><strong>Consumption Total</strong></span>
-            <span class="billing-amount">R {{ formatAmount(currentPeriodData.water.totals?.consumption_total) }}</span>
+            <span class="billing-amount">R {{ formatAmount(currentPeriodData.water.charges?.total) }}</span>
           </div>
-          <div class="tier-label">{{ getWaterTierLabel() }}</div>
 
           <!-- VAT (only if > 0) -->
           <div v-if="currentPeriodData.water.totals && currentPeriodData.water.totals.vat_amount > 0" class="billing-row">
@@ -184,15 +251,6 @@
         </div>
       </div>
 
-      <!-- Close Period Button - Only for current period -->
-      <div v-if="!isViewingPastPeriod" class="close-period-section">
-        <q-btn 
-          label="Close Period" 
-          class="close-period-btn"
-          @click="handleClosePeriod"
-          unelevated
-        />
-      </div>
     </template>
 
     <!-- Reading Required Modal -->
@@ -350,6 +408,35 @@ const goToAccounts = () => {
 
 const goToHome = () => {
   router.push({ name: 'splash' });
+};
+
+// Format usage based on meter type (water = litres/kL, electricity = kWh)
+const formatUsage = (value) => {
+  if (!value || value === 0) return '0 kL';
+  // Assuming water in litres, convert to kL for display
+  const kl = value / 1000;
+  if (kl >= 1) {
+    return kl.toFixed(2) + ' kL';
+  }
+  return value.toFixed(0) + ' L';
+};
+
+const formatDailyUsage = (value) => {
+  if (!value || value === 0) return '0 L/day';
+  return value.toFixed(0) + ' L/day';
+};
+
+const formatMeterUnits = (meter) => {
+  if (!meter || !meter.units_used) return '0';
+  const units = parseFloat(meter.units_used) || 0;
+  const meterType = (meter.meter_type || meter.meter_title || '').toLowerCase();
+  // Electricity
+  if (meterType.includes('elec')) {
+    return units.toFixed(0) + ' kWh';
+  }
+  // Water - show in kL
+  const kl = units / 1000;
+  return kl.toFixed(2) + ' kL';
 };
 
 const formatAmount = (amount) => {
@@ -782,6 +869,40 @@ $text-secondary: #666666;
   background: $border;
   margin: 8px 0;
 }
+.details-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #e3f2fd;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+.details-toggle:hover {
+  background: #bbdefb;
+}
+
+.breakdown-details {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.detail-row {
+  font-size: 12px;
+  color: #555;
+  padding: 4px 0;
+}
+
+.detail-row .billing-label {
+  font-weight: 400;
+}
 
 .period-total-row {
   padding-top: 12px;
@@ -1073,6 +1194,118 @@ $text-secondary: #666666;
   opacity: 0;
   padding-top: 0;
   padding-bottom: 0;
+}
+
+/* Usage Stats Box for Past Periods */
+.usage-stats-box {
+  display: flex;
+  justify-content: space-around;
+  background: #0A485E;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.usage-stat-item {
+  text-align: center;
+  color: white;
+}
+
+.usage-stat-item .stat-label {
+  display: block;
+  font-size: 11px;
+  opacity: 0.9;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.usage-stat-item .stat-value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.meter-breakdown-box {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 15px;
+}
+
+.breakdown-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.meter-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #eee;
+}
+
+.meter-line:last-child {
+  border-bottom: none;
+}
+
+.meter-name {
+  font-weight: 500;
+  flex: 1;
+}
+
+.meter-readings {
+  color: #666;
+  flex: 1;
+  text-align: center;
+}
+
+.meter-units {
+  font-weight: 600;
+  color: #4ECDC4;
+  text-align: right;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed #ddd;
+}
+
+.tier-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.billing-detail {
+  font-size: 11px;
+  color: #888;
+  margin-left: 8px;
+  flex: 1;
+}
+
+.subtotal-row {
+  background: #f5f5f5;
+  margin: 4px -16px;
+  padding: 8px 16px;
+}
+
+.charge-section {
+  margin-top: 8px;
+}
+
+.billing-divider.thick {
+  height: 2px;
+  background: #0A485E;
 }
 </style>
 
