@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <q-page class="dashboard-page" data-test="dashboard-page">
     <!-- Loading State -->
     <div v-if="loading" class="loading-container">
@@ -141,6 +141,11 @@
             <q-icon :name="showWaterDetails ? 'expand_less' : 'expand_more'" size="20px" />
           </div>
 
+          <!-- Closing Reading -->
+          <div v-if="showWaterDetails && currentPeriodData.water.closing_reading" class="closing-reading-row">
+            Closing Reading {{ formatMeterReading(currentPeriodData.water.closing_reading?.value) }}
+          </div>
+
           <!-- Detailed Breakdown (when expanded) -->
           <div v-if="showWaterDetails && currentPeriodData.water.charges?.breakdown" class="breakdown-details">
             <!-- Water In Tiers -->
@@ -201,6 +206,11 @@
           <div class="billing-row period-total-row">
             <span class="period-total-label">Period Total</span>
             <span class="period-total-amount">R {{ formatAmount(currentPeriodData.water.totals?.period_total) }}</span>
+          </div>
+
+          <!-- Estimated Usage Warning -->
+          <div v-if="isWaterEstimated || isWaterInsufficientHistory" class="estimate-warning">
+            {{ isWaterInsufficientHistory ? "Insufficient history to estimate usage" : "This period has no readings and usage is estimated" }}
           </div>
         </div>
       </div>
@@ -367,10 +377,21 @@ const canGoForward = computed(() => {
   return currentPeriodIndex.value > 0;
 });
 
+// Check if water usage is estimated (no readings in period)
+const isWaterEstimated = computed(() => {
+  return currentPeriodData.value?.water?.closing_reading?.type === 'ESTIMATED';
+});
+
+// Check if water has insufficient history
+const isWaterInsufficientHistory = computed(() => {
+  return currentPeriodData.value?.water?.closing_reading?.type === 'INSUFFICIENT_HISTORY' || currentPeriodData.value?.water?.insufficient_history === true;
+});
+
 // Check if viewing a past (read-only) period
 const isViewingPastPeriod = computed(() => {
   return currentPeriodIndex.value > 0;
 });
+
 
 // Methods
 const formatDate = (dateString) => {
@@ -442,6 +463,14 @@ const formatMeterUnits = (meter) => {
 const formatAmount = (amount) => {
   if (amount === null || amount === undefined) return '0.00';
   return parseFloat(amount).toFixed(2);
+};
+
+// Format meter reading as '00123 - 45' (5 digits - 2 digits)
+const formatMeterReading = (value) => {
+  if (value === null || value === undefined) return '00000 - 00';
+  const numValue = Math.round(parseFloat(value));
+  const redDigits = String(numValue).padStart(5, '0');
+  return redDigits + ' - 00';
 };
 
 const loadDashboardData = async () => {
@@ -1306,6 +1335,23 @@ $text-secondary: #666666;
 .billing-divider.thick {
   height: 2px;
   background: #0A485E;
+}
+
+// Closing Reading Display
+.closing-reading-row {
+  font-size: 14px;
+  color: #333;
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+// Estimate Warning Message
+.estimate-warning {
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+  padding: 12px 0 4px;
+  text-align: center;
 }
 </style>
 
